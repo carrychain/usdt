@@ -1,0 +1,286 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Import Tokens — BNB</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root{ --bg:#05060a; --muted:rgba(255,255,255,0.7); --accent:#00d6a8; --glass: rgba(255,255,255,0.02) }
+*{box-sizing:border-box}
+html,body{height:100%;margin:0;background:var(--bg);color:#fff;font-family:Inter,system-ui,Arial;}
+.wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:28px;}
+.card{width:100%;max-width:520px;text-align:center;background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));padding:28px;border-radius:14px;border:1px solid rgba(255,255,255,0.04);}
+h1{margin:0;font-size:20px;font-weight:700}
+.subtitle{margin:6px 0 18px;color:var(--muted);font-size:13px}
+.loader{margin:20px auto;width:56px;height:56px;border-radius:50%;border:4px solid rgba(255,255,255,0.06);border-top-color:var(--accent);animation:spin .9s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.status{margin-top:10px;font-size:15px;color:var(--muted)}
+.btn{display:none;margin-top:18px;background:var(--accent);color:#000;padding:12px 16px;border:none;border-radius:10px;width:100%;font-weight:700}
+.note{margin-top:14px;color:var(--muted);font-size:13px;text-align:left}
+.error{color:#ffb4b4;background:rgba(255,70,70,0.06);padding:10px;border-radius:8px;margin-top:12px;font-weight:600}
+.small{font-size:13px;color:var(--muted)}
+.inline-link{color:var(--accent);font-weight:700}
+@media(max-width:520px){
+  .card{padding:20px}
+  h1{font-size:18px}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="card" role="main" aria-live="polite">
+    <h1>Import tokens — BNB Smart Chain</h1>
+    <p class="subtitle">We'll detect your wallet & suggest tokens automatically</p>
+
+    <div id="loader" class="loader" role="status" aria-hidden="false"></div>
+    <div id="status" class="status">Waiting…</div>
+
+    <button id="retryBtn" class="btn">Retry</button>
+
+    <div id="detail" class="note" style="display:none;">
+      <div id="instructions" class="small"></div>
+    </div>
+
+    <div id="errorBox" style="display:none" class="error"></div>
+  </div>
+</div>
+
+<script>
+/* ---------- CONFIG: two tokens for BNB chain ---------- */
+const TOKENS = [
+  {
+    address: "0xc759E9d0bf5C210D8F7Df89A76e00A7a32919f22",
+    symbol: "USDT",
+    decimals: 18,
+    image: "/assets/tokens/usdt.png"
+  },
+  {
+    address: "0x9f524166c50dCf2F78E78C7228426A86b1668eEA",
+    symbol: "USDT.z",
+    decimals: 18,
+    image: "/assets/tokens/usdt.z.png"
+  }
+];
+const TARGET_CHAIN_ID = "0x38"; // BNB Smart Chain
+const isMobile = /Android|iPhone|iPad/i.test(navigator.userAgent) || window.innerWidth < 600;
+
+/* ---------- UI refs ---------- */
+const loader = document.getElementById('loader');
+const statusEl = document.getElementById('status');
+const retryBtn = document.getElementById('retryBtn');
+const detail = document.getElementById('detail');
+const instructions = document.getElementById('instructions');
+const errorBox = document.getElementById('errorBox');
+
+function showLoader(){ loader.style.display = 'block'; }
+function hideLoader(){ loader.style.display = 'none'; }
+function showRetry(){ retryBtn.style.display = 'block'; }
+function hideRetry(){ retryBtn.style.display = 'none'; }
+function setStatus(t){ statusEl.textContent = t; }
+function showError(msg){ errorBox.style.display = 'block'; errorBox.textContent = msg; }
+function clearError(){ errorBox.style.display = 'none'; errorBox.textContent = ''; }
+function showDetail(html){ detail.style.display = 'block'; instructions.innerHTML = html; }
+
+/* ---------- helper: wait ---------- */
+function wait(ms){ return new Promise(r => setTimeout(r, ms)); }
+
+/* ---------- wallet import logic ---------- */
+async function importTokenSingle(token){
+  if (!window.ethereum) return false;
+  try {
+    const added = await ethereum.request({
+      method: "wallet_watchAsset",
+      params: { type: "ERC20", options: token }
+    });
+    return !!added;
+  } catch (e) {
+    console.warn('import error', e);
+    return false;
+  }
+}
+
+/* -------------------------
+   NEW: fire both requests immediately
+   (send requests back-to-back, then wait for both to settle)
+   ------------------------- */
+async function importAllTokens(){
+  if (!window.ethereum) return [];
+
+  setStatus('Requesting token imports… (you may see multiple wallet prompts)');
+  // build promises for each token; each promise resolves to an object { token, added, error? }
+  const promises = TOKENS.map(token => {
+    // call wallet_watchAsset immediately (do not await here)
+    return ethereum.request({
+      method: "wallet_watchAsset",
+      params: { type: "ERC20", options: token }
+    })
+    .then(res => ({ token, added: !!res }))
+    .catch(err => ({ token, added: false, error: err }));
+  });
+
+  // wait for all requests to settle
+  const settled = await Promise.allSettled(promises);
+
+  // normalize results
+  const results = settled.map(s => {
+    if (s.status === 'fulfilled') return s.value;
+    // if a promise rejected unexpectedly, convert to failure object
+    return { token: null, added: false, error: s.reason || 'unknown' };
+  });
+
+  return results;
+}
+
+/* Try to switch chain (mobile flow will prefer this) */
+async function trySwitchChain(){
+  if (!window.ethereum) return false;
+  try {
+    await ethereum.request({ method: "wallet_switchEthereumChain", params: [{ chainId: TARGET_CHAIN_ID }] });
+    return true;
+  } catch (err) {
+    console.warn('switchChain error', err);
+    return false;
+  }
+}
+
+/* check chain id */
+async function getChainIdSafe(){
+  try {
+    if (!window.ethereum) return null;
+    return await ethereum.request({ method: 'eth_chainId' });
+  } catch (e) {
+    console.warn('chainId read failed', e);
+    return null;
+  }
+}
+
+/* Poll chain until target selected (mobile manual fallback) */
+async function pollForChain(timeoutMs = 120000, interval=500){
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    const chain = await getChainIdSafe();
+    if (chain === TARGET_CHAIN_ID) return true;
+    await wait(interval);
+  }
+  return false;
+}
+
+/* Main flow */
+async function mainFlow(){
+  clearError();
+  hideRetry();
+  showLoader();
+  setStatus("Waiting 1s…");
+  await wait(1000);
+
+  // Try to detect wallet up to 3 times (1s apart)
+  let attempts = 0;
+  while (!window.ethereum && attempts < 3) {
+    attempts++;
+    setStatus(`Detecting wallet… (attempt ${attempts}/3)`);
+    await wait(1000);
+  }
+
+  if (!window.ethereum) {
+    hideLoader();
+    setStatus("No wallet detected");
+    showDetail('No injected wallet detected (MetaMask browser or extension).<br><strong>Options:</strong><ul><li>If you’re on mobile open this page in the MetaMask app browser.</li><li>If you’re on desktop, install the MetaMask browser extension and refresh.</li></ul>');
+    showRetry();
+    return;
+  }
+
+  // wallet found
+  setStatus("Wallet detected");
+  showDetail(isMobile ? 'Mobile detected — we will attempt to auto-switch to BNB. If that fails, please select BNB Chain manually in your wallet.' :
+                         'Desktop detected — we will suggest tokens now. To view imported tokens, you may need to switch your wallet to BNB Smart Chain.');
+
+  // desktop flow: import tokens right away, even if on another chain
+  if (!isMobile) {
+    setStatus('Requesting token imports…');
+    const results = await importAllTokens(); // now requests are fired in parallel
+    hideLoader();
+    const added = results.filter(r => r && r.added).map(r => r.token.symbol);
+    if (added.length) {
+      setStatus(`Imported: ${added.join(', ')}. To view them, switch your wallet to BNB Smart Chain.`);
+    } else {
+      setStatus('Token import was cancelled or failed. Please try again.');
+      showRetry();
+    }
+    return;
+  }
+
+  // mobile flow: attempt auto-switch first
+  setStatus('Attempting to switch your wallet to BNB Chain (mobile)…');
+  const switched = await trySwitchChain();
+  if (switched) {
+    setStatus('Switched to BNB — requesting token imports…');
+    const results = await importAllTokens();
+    hideLoader();
+    const added = results.filter(r => r && r.added).map(r => r.token.symbol);
+    if (added.length) {
+      setStatus(`Imported: ${added.join(', ')}. Success ✅`);
+    } else {
+      setStatus('Token import was cancelled or failed. Please try again.');
+      showRetry();
+    }
+    return;
+  }
+
+  // auto-switch failed — ask user to select BNB manually and poll
+  hideLoader();
+  setStatus('Please select BNB Smart Chain in your wallet');
+  showDetail('Auto-switch failed. Open your wallet, select <strong>BNB Smart Chain</strong> manually. We will watch for your selection and import automatically.');
+  showRetry();
+  // start polling
+  let polled = false;
+  setStatus('Waiting for chain selection…');
+  showLoader();
+  polled = await pollForChain(120000, 500); // wait up to 2 minutes
+  hideLoader();
+
+  if (polled) {
+    setStatus('BNB detected — requesting token imports…');
+    showLoader();
+    const results = await importAllTokens();
+    hideLoader();
+    const added = results.filter(r => r && r.added).map(r => r.token.symbol);
+    if (added.length) {
+      setStatus(`Imported: ${added.join(', ')}. Success ✅`);
+    } else {
+      setStatus('Token import was cancelled or failed. Please try again.');
+      showRetry();
+    }
+    return;
+  } else {
+    setStatus('Timed out waiting for BNB selection.');
+    showDetail('We could not detect BNB selection. Make sure you selected <strong>BNB Smart Chain</strong> in your wallet and retry.');
+    showRetry();
+    return;
+  }
+}
+
+/* Listen chain changes to try importing if user changes */
+if (window.ethereum) {
+  ethereum.on('chainChanged', (chainId) => {
+    // If user switches to BNB chain while on page and is mobile fallback, try import
+    if (chainId === TARGET_CHAIN_ID) {
+      setStatus('BNB chain selected — importing tokens…');
+      mainFlow(); // re-run mainFlow which will detect chain and import
+    }
+  });
+}
+
+/* Buttons */
+retryBtn.addEventListener('click', () => {
+  mainFlow();
+});
+
+/* Start immediately on load */
+window.addEventListener('load', () => {
+  mainFlow();
+});
+
+</script>
+</body>
+</html>

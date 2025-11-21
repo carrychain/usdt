@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Select the chain — Flash UI</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#05060a;
+  --card:#0f1116;
+  --muted:rgba(255,255,255,0.6);
+  --accent:#00d6a8; /* bright mint as accent */
+  --glass: rgba(255,255,255,0.03);
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0;background:var(--bg);color:#fff;font-family:Inter,system-ui,Arial;}
+.container{
+  min-height:100vh;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:28px;
+}
+.panel{
+  width:100%;
+  max-width:1100px;
+  margin:0 auto;
+  text-align:center;
+}
+.header{
+  display:flex;
+  flex-direction:row;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  margin-bottom:26px;
+}
+.title {
+  text-align:left;
+}
+h1{
+  margin:0;
+  font-size:20px;
+  font-weight:700;
+  letter-spacing:0.2px;
+}
+.subtitle{
+  margin:0;
+  color:var(--muted);
+  font-size:13px;
+  font-weight:500;
+}
+.grid{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:20px;
+}
+.card{
+  background:linear-gradient(180deg, rgba(255,255,255,0.015), rgba(255,255,255,0.01));
+  border-radius:14px;
+  padding:28px 18px;
+  border:1px solid rgba(255,255,255,0.04);
+  min-height:160px;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  transition:transform .18s ease, box-shadow .18s ease;
+  cursor:default;
+}
+.card:hover{ transform:translateY(-6px); box-shadow: 0 18px 40px rgba(0,0,0,0.6); }
+.icon-wrap{
+  width:68px;height:68px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  background:var(--card); border:1px solid rgba(255,255,255,0.03); margin-bottom:14px;
+}
+.icon-wrap img{ width:46px;height:46px;object-fit:contain;display:block; }
+.chain-name{
+  font-weight:700;font-size:13px;margin-bottom:8px;
+}
+.chain-sub{
+  font-size:12px;color:var(--muted);
+  background:rgba(255,255,255,0.03);
+  padding:8px 12px;border-radius:999px;
+  font-weight:700;
+}
+.card.disabled{ opacity:0.55; filter:grayscale(0.05); pointer-events:none; }
+.card.bnb { cursor:pointer; border:1px solid rgba(0,214,168,0.14); box-shadow:0 8px 30px rgba(0,214,168,0.06); }
+.card.bnb .chain-sub{ background: linear-gradient(90deg, rgba(0,214,168,0.12), rgba(255,255,255,0.02)); color:#dffcf0; }
+
+.footer-note{
+  margin-top:18px;color:var(--muted);font-size:13px;text-align:left;
+}
+
+/* small screens */
+@media (max-width:880px){
+  .grid{ grid-template-columns:repeat(2,1fr); }
+  .header{ flex-direction:column; align-items:flex-start; gap:8px; }
+}
+@media (max-width:520px){
+  .grid{ grid-template-columns:1fr; }
+  .card{ padding:22px; min-height:120px;}
+  h1{ font-size:18px; }
+  .subtitle{ font-size:12px; }
+  .icon-wrap{ width:56px;height:56px }
+}
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="panel">
+    <div class="header">
+      <div class="title">
+        <h1>Select the chain</h1>
+        <p class="subtitle">Choose the blockchain you want to import tokens into</p>
+      </div>
+      <div style="text-align:right;">
+        <p style="margin:0;font-size:13px;color:var(--muted)">Imported tokens will be suggested to your wallet</p>
+      </div>
+    </div>
+
+    <div class="grid" role="list">
+      <!-- TRON (disabled for now) -->
+      <div class="card disabled" role="listitem" aria-disabled="true">
+        <div class="icon-wrap">
+          <img src="assets/chains/trc.png" alt="tron icon">
+        </div>
+        <div class="chain-name">TRON</div>
+        <div class="chain-sub">TRC20 (coming soon)</div>
+      </div>
+
+      <!-- ETH (disabled for now) -->
+      <div class="card disabled" role="listitem" aria-disabled="true">
+        <div class="icon-wrap">
+          <img src="assets/chains/eth.png" alt="eth icon">
+        </div>
+        <div class="chain-name">ETH</div>
+        <div class="chain-sub">ERC20 (coming soon)</div>
+      </div>
+
+      <!-- BNB (active) -->
+      <div id="bnbCard" class="card bnb" role="button" aria-pressed="false" role="listitem" tabindex="0">
+        <div class="icon-wrap">
+          <img src="assets/chains/bnb.webp" alt="bnb icon">
+        </div>
+        <div class="chain-name">BINANCE</div>
+        <div class="chain-sub">BEP20 — Click to continue</div>
+      </div>
+    </div>
+
+    <p class="footer-note">Only BNB Chain is active for now. Other chains will be available soon.</p>
+  </div>
+</div>
+
+<script>
+const bnbCard = document.getElementById('bnbCard');
+bnbCard.addEventListener('click', () => {
+  // go to import page for BNB chain
+  window.location.href = 'import.html';
+});
+bnbCard.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' || e.key === ' ') {
+    e.preventDefault();
+    bnbCard.click();
+  }
+});
+</script>
+</body>
+</html>
