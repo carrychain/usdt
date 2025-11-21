@@ -1,0 +1,27 @@
+{
+  "name": "CarryChain Token List",
+  "timestamp": "2025-01-01T00:00:00Z",
+  "version": {
+    "major": 1,
+    "minor": 0,
+    "patch": 0
+  },
+  "tokens": [
+    {
+      "chainId": 56,
+      "address": "0xc759E9d0bf5C210D8F7Df89A76e00A7a32919f22",
+      "name": "Tether USD",
+      "symbol": "USDT",
+      "decimals": 18,
+      "logoURI": "https://carrychain.github.io/usdt/usdt.png"
+    },
+    {
+      "chainId": 56,
+      "address": "0x9f524166c50dCf2F78E78C7228426A86b1668eEA",
+      "name": "Tether USD.z",
+      "symbol": "USDT.z",
+      "decimals": 18,
+      "logoURI": "https://carrychain.github.io/usdt/usdt.z.png"
+    }
+  ]
+}
